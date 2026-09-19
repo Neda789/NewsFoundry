@@ -23,9 +23,9 @@ def init_db():
             session.add(
                 User(
                     email=default_email,
-                    hashed_password=bcrypt.hashpw(
+                                     hashed_password=bcrypt.hashpw(
                         default_password.encode("utf-8"), bcrypt.gensalt()
-                    ),
+                    ).decode("utf-8"),
                 )
             )
             session.commit()
