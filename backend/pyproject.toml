@@ -12,7 +12,7 @@ dependencies = [
     "bcrypt>=4.3.0",
     "httpx>=0.28.1",
     "pyjwt>=2.8.0",
-    "pydantic-ai-slim[mistral]>=2.48.0",
+    "pydantic-ai-slim[google,mistral]>=2.48.0",
 ]
 
 [dependency-groups]
