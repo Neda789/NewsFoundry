@@ -4,7 +4,8 @@ from typing import Optional
 
 import bcrypt
 import jwt
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -16,6 +17,8 @@ router = APIRouter()
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-key-change-me")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24h
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
 class LoginRequest(BaseModel):
@@ -55,3 +58,25 @@ async def login(credentials: LoginRequest):
 
     access_token = create_access_token(data={"sub": str(user.id)})
     return TokenResponse(access_token=access_token)
+
+
+def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+    """Décode le JWT et renvoie l'utilisateur courant, ou lève une 401."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Impossible de valider les informations d'authentification",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except jwt.PyJWTError:
+        raise credentials_exception
+
+    with Session(engine) as session:
+        user = session.get(User, int(user_id))
+    if user is None:
+        raise credentials_exception
+    return user

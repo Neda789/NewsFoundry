@@ -11,5 +11,11 @@ dependencies = [
     "psycopg2-binary>=2.9.9",
     "bcrypt>=4.3.0",
     "httpx>=0.28.1",
-        "pyjwt>=2.8.0",
+    "pyjwt>=2.8.0",
+    "pydantic-ai-slim[mistral]>=2.48.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
 ]

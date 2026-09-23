@@ -1,0 +1,34 @@
+﻿name: Backend tests
+
+on:
+  push:
+    paths:
+      - "backend/**"
+  pull_request:
+    paths:
+      - "backend/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run tests
+        env:
+          JWT_SECRET_KEY: test-secret-key
+          DATABASE_URL: sqlite:///./test.db
+          MISTRAL_API_KEY: dummy-key-for-tests
+        run: uv run pytest -v
