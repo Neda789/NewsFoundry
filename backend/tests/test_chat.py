@@ -24,7 +24,15 @@ def use_test_model():
     """Remplace le vrai LLM (Mistral) par un modèle factice pendant les tests."""
     with chat_module.agent.override(model=TestModel()):
         yield
+@pytest.fixture(autouse=True)
+def stub_top_news(monkeypatch):
+    """Empêche les tests d'appeler la vraie WorldNewsAPI."""
+    async def fake_get_top_news(*args, **kwargs):
+        return [
+            {"title": "Titre de test", "summary": "Résumé de test."},
+        ]
 
+    monkeypatch.setattr(chat_module, "get_top_news", fake_get_top_news)
 
 @pytest.fixture
 def client():

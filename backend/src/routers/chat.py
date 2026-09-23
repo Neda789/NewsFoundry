@@ -1,16 +1,19 @@
-"""Chat avec un agent PydanticAI (Mistral).
+"""Chat avec un agent PydanticAI (Gemini), contextualisé avec l'actualité du jour.
 
 L'historique complet de chaque discussion est sauvegardé dans le champ
-JSON `Chat.messages`, au format natif de PydanticAI, pour reprendre la
-conversation avec le contexte complet à chaque nouveau message.
+JSON `Chat.messages`. Le prompt système (base + résumé des actualités du
+jour via WorldNewsAPI) est généré une seule fois, à la création de la
+discussion, et sauvegardé dans `Chat.system_prompt` pour rester stable
+tout au long de la discussion (Étape 5).
 """
 
 import os
+from dataclasses import dataclass
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from pydantic_ai import Agent
+from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import (
     ModelMessage,
     ModelMessagesTypeAdapter,
@@ -24,10 +27,11 @@ from sqlmodel import Session, select
 from database import engine
 from models import Chat, User
 from routers.auth import get_current_user
+from services.worldnews import WorldNewsAPIError, get_top_news
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
-SYSTEM_PROMPT = (
+BASE_SYSTEM_PROMPT = (
     "Tu es l'assistant de NewsFoundry, une application qui aide les "
     "utilisateurs à comprendre l'actualité. Réponds de façon claire, "
     "concise et neutre, en français sauf si l'utilisateur écrit dans une "
@@ -35,10 +39,62 @@ SYSTEM_PROMPT = (
     "Markdown (titres, listes, gras) pour faciliter la lecture."
 )
 
+
+async def _build_news_digest() -> str:
+    """Résumé compact (titre + résumé) des actualités du jour.
+
+    On n'intègre que le titre et le résumé de chaque article (pas le
+    texte complet) pour garder le prompt système court.
+    """
+    try:
+        articles = await get_top_news()
+    except WorldNewsAPIError:
+        return ""
+
+    lines = []
+    for article in articles[:15]:
+        title = (article.get("title") or "").strip()
+        summary = (article.get("summary") or article.get("text") or "").strip()
+        if not title:
+            continue
+        if summary:
+            summary = summary[:280]
+            lines.append(f"- {title} : {summary}")
+        else:
+            lines.append(f"- {title}")
+
+    return "\n".join(lines)
+
+
+async def build_system_prompt() -> str:
+    """Prompt système complet (base + actualités), généré à la création d'une discussion."""
+    digest = await _build_news_digest()
+    if not digest:
+        return BASE_SYSTEM_PROMPT
+
+    return (
+        f"{BASE_SYSTEM_PROMPT}\n\n"
+        "Voici un résumé des principales actualités du jour, à utiliser "
+        "pour répondre aux questions sur l'actualité récente (ces "
+        "informations sont plus à jour que tes connaissances internes) :\n\n"
+        f"{digest}"
+    )
+
+
+@dataclass
+class ChatDeps:
+    system_prompt: str
+
+
 agent = Agent(
-    os.getenv("CHAT_MODEL", "mistral:mistral-small-latest"),
-    system_prompt=SYSTEM_PROMPT,
+    os.getenv("CHAT_MODEL", "google:gemini-3.6-flash"),
+    deps_type=ChatDeps,
 )
+
+
+@agent.system_prompt
+def _dynamic_system_prompt(ctx: RunContext[ChatDeps]) -> str:
+    return ctx.deps.system_prompt
 
 
 class ChatCreate(BaseModel):
@@ -93,11 +149,14 @@ async def create_chat(
     chat_in: ChatCreate,
     current_user: User = Depends(get_current_user),
 ):
-    """Démarre une nouvelle discussion pour l'utilisateur connecté."""
+    """Démarre une nouvelle discussion, avec un prompt système contextualisé par l'actualité du jour."""
+    system_prompt = await build_system_prompt()
+
     chat = Chat(
         user_id=current_user.id,
         title=chat_in.title or "Nouvelle discussion",
         messages=[],
+        system_prompt=system_prompt,
     )
     with Session(engine) as session:
         session.add(chat)
@@ -140,7 +199,8 @@ async def send_message(
         chat = _get_owned_chat(chat_id, current_user, session)
         history = ModelMessagesTypeAdapter.validate_python(chat.messages)
 
-        result = await agent.run(message_in.content, message_history=history)
+        deps = ChatDeps(system_prompt=chat.system_prompt or BASE_SYSTEM_PROMPT)
+        result = await agent.run(message_in.content, message_history=history, deps=deps)
 
         chat.messages = ModelMessagesTypeAdapter.dump_python(
             result.all_messages(), mode="json"
