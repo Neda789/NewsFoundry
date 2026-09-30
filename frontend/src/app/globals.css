@@ -24,3 +24,45 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+.auth-background {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #18181b;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.login-logo-icon {
+  @apply inline-block;
+}
+.login-card {
+  @apply bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm;
+}
+
+.login-logo {
+  @apply flex items-center justify-center gap-2 text-xl font-bold text-purple-600 mb-2;
+}
+
+
+.login-subtitle {
+  @apply text-center text-sm text-gray-500 mb-6;
+}
+
+.login-label {
+  @apply block text-sm font-medium text-gray-700 mt-4 mb-1;
+}
+
+.login-input {
+  @apply w-full rounded-lg bg-gray-100 border border-transparent px-3 py-2 text-sm outline-none focus:border-purple-400;
+}
+
+.login-error {
+  @apply text-sm text-red-600 mt-3;
+}
+
+.login-button {
+  @apply w-full mt-6 rounded-lg bg-gray-900 text-white py-2 text-sm font-medium hover:bg-gray-800 disabled:opacity-50;
+}

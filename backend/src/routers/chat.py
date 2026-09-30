@@ -27,7 +27,7 @@ from sqlmodel import Session, select
 from database import engine
 from models import Chat, User
 from routers.auth import get_current_user
-from services.worldnews import WorldNewsAPIError, get_top_news
+from services.worldnews import WorldNewsAPIError, get_top_news, search_news as search_news_api
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -143,7 +143,39 @@ def _to_readable(messages: List[ModelMessage]) -> List[MessageOut]:
                     readable.append(MessageOut(role="assistant", content=part.content))
     return readable
 
+@agent.tool_plain
+async def search_news(query: str) -> str:
+    """Recherche des articles d'actualité sur un sujet précis pour approfondir une discussion.
 
+    À utiliser quand l'utilisateur demande plus de détails, d'exemples ou de contexte
+    sur un sujet spécifique qui nécessite de charger des articles supplémentaires.
+
+    Args:
+        query: Les mots-clés ou le sujet à rechercher dans l'actualité.
+    """
+    try:
+        articles = await search_news_api(query)
+    except WorldNewsAPIError:
+        return "Aucun article n'a pu être trouvé pour cette recherche."
+
+    if not articles:
+        return "Aucun article trouvé pour cette recherche."
+
+    lines = []
+    for article in articles[:5]:
+        title = (article.get("title") or "").strip()
+        summary = (article.get("summary") or article.get("text") or "").strip()
+        url = (article.get("url") or "").strip()
+        if not title:
+            continue
+        line = f"- {title}"
+        if summary:
+            line += f" : {summary[:280]}"
+        if url:
+            line += f" ({url})"
+        lines.append(line)
+
+    return "\n".join(lines) if lines else "Aucun article pertinent trouvé."
 @router.post("", response_model=ChatRead, status_code=status.HTTP_201_CREATED)
 async def create_chat(
     chat_in: ChatCreate,

@@ -20,6 +20,13 @@ def fresh_db():
     yield
 
 @pytest.fixture(autouse=True)
+def stub_search_news(monkeypatch):
+    """Empêche les tests d'appeler la vraie recherche WorldNewsAPI."""
+    async def fake_search_news_api(*args, **kwargs):
+        return [{"title": "Article de test", "summary": "Résumé de test.", "url": "https://example.com"}]
+    monkeypatch.setattr(chat_module, "search_news_api", fake_search_news_api)
+
+@pytest.fixture(autouse=True)
 def use_test_model():
     """Remplace le vrai LLM (Mistral) par un modèle factice pendant les tests."""
     with chat_module.agent.override(model=TestModel()):

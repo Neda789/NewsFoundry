@@ -44,3 +44,26 @@ async def get_top_news(source_country: str = "fr", language: str = "fr") -> list
         articles.extend(cluster.get("news", []))
 
     return articles
+
+
+async def search_news(query: str, number: int = 5, language: str = "fr") -> list[dict]:
+    """Cherche des articles correspondant à une requête textuelle via /search-news."""
+    params = {
+        "text": query,
+        "language": language,
+        "number": number,
+        "api-key": settings.worldnews_api_key,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(f"{WORLDNEWS_BASE_URL}/search-news", params=params)
+            response.raise_for_status()
+    except httpx.TimeoutException as exc:
+        raise WorldNewsAPIError("WorldNewsAPI n'a pas répondu à temps.") from exc
+    except httpx.HTTPStatusError as exc:
+        raise WorldNewsAPIError(f"WorldNewsAPI a retourné une erreur ({exc.response.status_code}).") from exc
+    except httpx.RequestError as exc:
+        raise WorldNewsAPIError("Impossible de contacter WorldNewsAPI.") from exc
+
+    data = response.json()
+    return data.get("news", [])
