@@ -15,3 +15,8 @@ class Chat(SQLModel, table=True):
     title: str = Field(default="Nouvelle discussion")
     system_prompt: str = Field(default="")
     messages: list = Field(default_factory=list, sa_column=Column(JSON))
+
+    # Étape 7 — revue de presse générée à partir de cette discussion
+    press_review_title: Optional[str] = Field(default=None)
+    press_review_summary: Optional[str] = Field(default=None)
+    press_review_articles: list = Field(default_factory=list, sa_column=Column(JSON))

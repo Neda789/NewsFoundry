@@ -56,7 +56,7 @@ body {
 }
 
 .login-input {
-  @apply w-full rounded-lg bg-gray-100 border border-transparent px-3 py-2 text-sm outline-none focus:border-purple-400;
+  @apply w-full rounded-lg bg-gray-100 border border-transparent px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400;
 }
 
 .login-error {
