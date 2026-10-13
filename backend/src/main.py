@@ -9,7 +9,8 @@ app = FastAPI()
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://tvoj-projekat.vercel.app",  # zamijeni sa tvojim stvarnim Vercel URL-om
+    "https://news-foundry-rose.vercel.app",
+
 ]
 
 app.add_middleware(
