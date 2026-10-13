@@ -13,6 +13,9 @@ dependencies = [
     "httpx>=0.28.1",
     "pyjwt>=2.8.0",
     "pydantic-ai-slim[groq]>=2.54.0",
+    "llama-index-core>=0.14.25",
+    "llama-index-embeddings-huggingface>=0.8.0",
+    "sentence-transformers>=6.1.0",
 ]
 
 [dependency-groups]

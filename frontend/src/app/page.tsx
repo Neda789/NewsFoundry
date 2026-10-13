@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageSquare, FileText, LogOut, Send, LayoutDashboard, ArrowLeft, User, Newspaper } from 'lucide-react';
+import { MessageSquare, FileText, LogOut, Send, LayoutDashboard, ArrowLeft, User, Newspaper, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Discussion {
   id: string;
@@ -33,6 +35,7 @@ export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
+  const [generatingReview, setGeneratingReview] = useState(false);
   const [chatStarted, setChatStarted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -50,7 +53,7 @@ export default function Home() {
     }
   }, []);
 
-  // Provjera tokena odmah pri učitavanju (izbjegava setState u useEffect-u)
+  //Verification du token d'authentification et récupération des discussions existantes
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) {
@@ -148,10 +151,11 @@ export default function Home() {
   }
 
   async function handleGeneratePressReview() {
-    if (!activeChatId) return;
+    if (!activeChatId || generatingReview) return;
     const topic = window.prompt("Sur quel sujet voulez-vous générer la revue de presse ?");
     if (!topic || !topic.trim()) return;
 
+    setGeneratingReview(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chats/${activeChatId}/press-review`, {
         method: "POST",
@@ -166,6 +170,8 @@ export default function Home() {
       }
     } catch {
       alert("Impossible de contacter le serveur.");
+    } finally {
+      setGeneratingReview(false);
     }
   }
 
@@ -228,10 +234,15 @@ export default function Home() {
             </div>
             <button
               onClick={handleGeneratePressReview}
-              className="flex items-center space-x-2 rounded-full bg-purple-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-purple-700"
+              disabled={generatingReview}
+              className="flex items-center space-x-2 rounded-full bg-purple-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-purple-700 disabled:opacity-60"
             >
-              <FileText className="h-4 w-4" />
-              <span>Générer une revue de presse</span>
+              {generatingReview ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+              <span>{generatingReview ? "Génération en cours..." : "Générer une revue de presse"}</span>
             </button>
           </header>
         ) : (
@@ -289,11 +300,22 @@ export default function Home() {
                   <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-purple-50">
                     <Newspaper className="h-4 w-4 text-purple-600" />
                   </div>
-                  <div className="max-w-md whitespace-pre-wrap rounded-2xl bg-white px-4 py-3 text-sm text-slate-700 shadow-sm border border-slate-100">
-                    {m.content}
+                  <div className="max-w-xl rounded-2xl bg-white px-4 py-3 text-sm text-slate-700 shadow-sm border border-slate-100 prose prose-sm prose-slate max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
                   </div>
                 </div>
               )
+            )}
+            {sending && (
+              <div className="flex items-start space-x-3">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-purple-50">
+                  <Newspaper className="h-4 w-4 text-purple-600" />
+                </div>
+                <div className="flex items-center space-x-2 rounded-2xl bg-white px-4 py-3 text-sm text-slate-400 shadow-sm border border-slate-100">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>L&apos;assistant rédige une réponse...</span>
+                </div>
+              </div>
             )}
             <div ref={messagesEndRef} />
           </div>

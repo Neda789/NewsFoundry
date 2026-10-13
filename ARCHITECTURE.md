@@ -90,6 +90,7 @@ P14DevIA-main/
 
 - Les mots de passe sont hashés avec **bcrypt** avant d'être stockés (jamais en clair).
 - L'authentification utilise des **tokens JWT** (librairie `pyjwt`) : après connexion, le frontend stocke le token et l'envoie dans l'en-tête `Authorization: Bearer <token>` à chaque requête, ce qui évite d'avoir à gérer des sessions côté serveur.
+- Il n'existe pas d'endpoint public de création de compte (`/register`) : les utilisateurs sont créés via le script `backend/create_test_user.py` ou directement en base. Ce choix est suffisant pour le périmètre de ce projet (démonstration / cas fictif), mais serait à revoir avant une mise en production ouverte au public.
 
 ### 4.3 Agent IA : PydanticAI
 
@@ -159,9 +160,8 @@ L'API utilise `HTTPException` de FastAPI pour renvoyer des erreurs explicites pl
 
 | Endpoint | Code | Cas | Détail renvoyé |
 |---|---|---|---|
-| `POST /auth/register` | 400 | Email déjà utilisé | Message explicite indiquant que le compte existe déjà |
-| `POST /auth/login` | 401 | Email ou mot de passe incorrect | Identifiants invalides |
-| Tous les endpoints protégés | 401 | Token JWT manquant, invalide ou expiré | Authentification requise |
+| `POST /login` | 401 | Email ou mot de passe incorrect | `Email ou mot de passe incorrect` |
+| Tous les endpoints protégés (`/chats/...`) | 401 | Token JWT manquant, invalide, expiré, ou utilisateur supprimé | `Impossible de valider les informations d'authentification` |
 | `GET /chats/{chat_id}` | 404 | Discussion inexistante, ou appartenant à un autre utilisateur | `Discussion introuvable` |
 | `POST /chats/{chat_id}/messages` | 404 | Idem (discussion non trouvée / non possédée) | `Discussion introuvable` |
 | `POST /chats/{chat_id}/press-review` | 404 | Idem | `Discussion introuvable` |

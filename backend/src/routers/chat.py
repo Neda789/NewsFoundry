@@ -8,6 +8,7 @@ tout au long de la discussion (Étape 5).
 """
 
 import os
+import logging
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -30,6 +31,7 @@ from routers.auth import get_current_user
 from services.worldnews import WorldNewsAPIError, get_top_news, search_news as search_news_api
 
 router = APIRouter(prefix="/chats", tags=["chats"])
+logger = logging.getLogger(__name__)
 
 BASE_SYSTEM_PROMPT = (
     "Tu es l'assistant de NewsFoundry, une application qui aide les "
@@ -304,7 +306,14 @@ async def send_message(
         history = ModelMessagesTypeAdapter.validate_python(chat.messages)
 
         deps = ChatDeps(system_prompt=chat.system_prompt or BASE_SYSTEM_PROMPT)
-        result = await agent.run(message_in.content, message_history=history, deps=deps)
+        try:
+            result = await agent.run(message_in.content, message_history=history, deps=deps)
+        except Exception:
+            logger.exception("Erreur lors de l'appel a l'agent de chat")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Le service de generation de reponse est momentanement indisponible. Reessayez dans quelques instants.",
+            )
 
         chat.messages = ModelMessagesTypeAdapter.dump_python(
             result.all_messages(), mode="json"
@@ -336,10 +345,17 @@ async def generate_press_review(
                 detail="Cette discussion ne contient encore aucun message.",
             )
 
-        result = await press_review_agent.run(
-            f"Rédige la revue de presse sur le sujet suivant : {review_in.topic}",
-            message_history=history,
-        )
+        try:
+            result = await press_review_agent.run(
+                f"Rédige la revue de presse sur le sujet suivant : {review_in.topic}",
+                message_history=history,
+            )
+        except Exception:
+            logger.exception("Erreur lors de la generation de la revue de presse")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Le service de generation de reponse est momentanement indisponible. Reessayez dans quelques instants.",
+            )
         output = result.output
 
         chat.press_review_title = output.title
